@@ -50,7 +50,6 @@ char frame_end_tag[9] = {'B', 'o', 'u', 'n', 'd', 'a', 'r', 'y', 'E'};
 // Frame header is little endian. So this should just work on Intel machines.
 // Only know what some of these fields are, but really only size matters.
 // The dimensions seem to be incorrect, anyways.
-
 struct __attribute__((__packed__)) frame_header
 {
     u_int8_t p1;
@@ -102,8 +101,41 @@ int parse_addr(struct tcp_addr *addr, char *str)
     }
 }
 
-int open_input_stream(struct fd_stream *file_in, char *in)
-{
+void set_status_text(JNIEnv* env, jobject obj, const char * text, const char * err_code) {
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    jmethodID method = (*env)->GetMethodID(env, cls, "setStatusText", "(Ljava/lang/String;Ljava/lang/String;)V");
+    jstring status = (*env)->NewStringUTF(env, text);
+    jstring code = (*env)->NewStringUTF(env, "");
+    if(err_code != NULL)
+        code = (*env)->NewStringUTF(env, err_code);
+    (*env)->CallVoidMethod(env, obj, method, status, code);
+}
+
+void log_string(JNIEnv* env, jobject obj, const char * text) {
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    jmethodID method = (*env)->GetMethodID(env, cls, "log_string", "(Ljava/lang/String;)V");
+    jstring s = (*env)->NewStringUTF(env, text);
+    (*env)->CallVoidMethod(env, obj, method, s);
+}
+
+void log_char(JNIEnv* env, jobject obj, jchar c) {
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    jmethodID method = (*env)->GetMethodID(env, cls, "log_char", "(C)V");
+    (*env)->CallVoidMethod(env, obj, method, c);
+}
+
+void log_int(JNIEnv* env, jobject obj, jint i) {
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    jmethodID method = (*env)->GetMethodID(env, cls, "log_int", "(I)V");
+    (*env)->CallVoidMethod(env, obj, method, i);
+}
+
+int open_input_stream(
+    JNIEnv* env,
+    jobject obj,
+    struct fd_stream *file_in,
+    char *in
+) {
     struct tcp_addr addr;
     int sock;
     struct sockaddr_in server;
@@ -113,6 +145,7 @@ int open_input_stream(struct fd_stream *file_in, char *in)
     {
         if (parse_addr(&addr, in) == 0)
         {
+            set_status_text(env, obj, "Input error on parse_addr()", NULL);
             return 0;
         }
         else
@@ -123,7 +156,7 @@ int open_input_stream(struct fd_stream *file_in, char *in)
 
             if (host == NULL)
             {
-                fprintf(stderr, "Error: failed to gethostbyname() - %s\n", hstrerror(h_errno));
+                set_status_text(env, obj, "Input error on gethostbyname()", hstrerror(h_errno));
                 return 0;
             }
 
@@ -131,7 +164,7 @@ int open_input_stream(struct fd_stream *file_in, char *in)
 
             if (sock == -1)
             {
-                fprintf(stderr, "Error: failed to socket() - %s\n", strerror(errno));
+                set_status_text(env, obj, "Input error on socket()", strerror(errno));
                 return 0;
             }
 
@@ -141,7 +174,7 @@ int open_input_stream(struct fd_stream *file_in, char *in)
 
             if (connect(sock, (struct sockaddr *)&server, sizeof(server)) == -1)
             {
-                fprintf(stderr, "Error: failed to connect() - %s\n", strerror(errno));
+                set_status_text(env, obj, "Input error on connect()", strerror(errno));
                 return 0;
             }
 
@@ -149,7 +182,7 @@ int open_input_stream(struct fd_stream *file_in, char *in)
 
             if (file_in->fd == NULL)
             {
-                fprintf(stderr, "Error: failed to fdopen() - %s\n", strerror(errno));
+                set_status_text(env, obj, "Input error on fdopen()", strerror(errno));
                 return 0;
             }
         }
@@ -160,7 +193,7 @@ int open_input_stream(struct fd_stream *file_in, char *in)
 
         if (file_in->fd == NULL)
         {
-            fprintf(stderr, "Error: failed to fopen() - %s\n", strerror(errno));
+            set_status_text(env, obj, "Input error on fopen()", strerror(errno));
             return 0;
         }
     }
@@ -168,8 +201,12 @@ int open_input_stream(struct fd_stream *file_in, char *in)
     return 1;
 }
 
-int open_output_stream(struct fd_stream *file_out, char *out)
-{
+int open_output_stream(
+    JNIEnv* env,
+    jobject obj,
+    struct fd_stream *file_out,
+    char *out
+) {
     struct tcp_addr addr;
     int bind_sock, write_sock;
     struct sockaddr_in server, client;
@@ -179,6 +216,7 @@ int open_output_stream(struct fd_stream *file_out, char *out)
     {
         if (parse_addr(&addr, out) == 0)
         {
+            set_status_text(env, obj, "Output error on parse_addr()", NULL);
             return 0;
         }
         else
@@ -186,12 +224,11 @@ int open_output_stream(struct fd_stream *file_out, char *out)
             debug_print("Network Output Stream: address = %s, port = %s\n", strlen(addr.addr) > 0 ? addr.addr : "EMPTY", addr.port);
 
             // Does not makes sense to dns lookup output hostname. Just assume it is an IP.
-
             bind_sock = socket(AF_INET, SOCK_STREAM, 0);
 
             if (bind_sock == -1)
             {
-                fprintf(stderr, "Error: failed to socket() - %s\n", strerror(errno));
+                set_status_text(env, obj, "Output error on socket()", strerror(errno));
                 return 0;
             }
 
@@ -199,19 +236,18 @@ int open_output_stream(struct fd_stream *file_out, char *out)
 
             if (setsockopt(bind_sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
             {
-                fprintf(stderr, "Error: failed to setsockopt() - %s\n", strerror(errno));
+                set_status_text(env, obj, "Output error on setsockopt()", strerror(errno));
                 return 0;
             }
 
             // If IP is empty, just bind to default.
-
             server.sin_addr.s_addr = strlen(addr.addr) > 0 ? inet_addr(addr.addr) : INADDR_ANY;
             server.sin_family = AF_INET;
             server.sin_port = htons(atoi(addr.port));
 
             if (bind(bind_sock, (struct sockaddr *)&server, sizeof(server)) == -1)
             {
-                fprintf(stderr, "Error: failed to bind() - %s\n", strerror(errno));
+                set_status_text(env, obj, "Output error on bind()", strerror(errno));
                 return 0;
             }
 
@@ -221,7 +257,7 @@ int open_output_stream(struct fd_stream *file_out, char *out)
 
             if (write_sock == -1)
             {
-                fprintf(stderr, "Error: failed to accept() - %s\n", strerror(errno));
+                set_status_text(env, obj, "Output error on accept()", strerror(errno));
                 return 0;
             }
 
@@ -230,7 +266,7 @@ int open_output_stream(struct fd_stream *file_out, char *out)
 
             if (file_out->fd == NULL)
             {
-                fprintf(stderr, "Error: failed to fdopen() - %s\n", strerror(errno));
+                set_status_text(env, obj, "Output error on fdopen()", strerror(errno));
                 return 0;
             }
         }
@@ -241,44 +277,25 @@ int open_output_stream(struct fd_stream *file_out, char *out)
 
         if (file_out->fd == NULL)
         {
-            fprintf(stderr, "Error: failed to fopen() - %s\n", strerror(errno));
+            set_status_text(env, obj, "Output error on fopen()", strerror(errno));
             return 0;
         }
     }
-
     return 1;
 }
 
-//JNIEXPORT jstring JNICALL
-//Java_com_example_borescopeviewer_MainActivity_bsfStringFromJNI(JNIEnv* env, jobject) {
-//    char hello[15] = "Hello from BSF";
-//    return (*env)->NewStringUTF(env, &hello);
-//}
-
-//JNIEXPORT jint JNICALL // Can't seem to use void here?
-//Java_com_example_borescopeviewer_MainActivity_bsfCallJavaMethod(JNIEnv* env, jobject obj) {
-//    jclass cls = (*env)->GetObjectClass(env, obj);
-//    jmethodID method = (*env)->GetMethodID(env, cls, "print_line", "()V");
-//    // Next step toward calling Java methods throws an error. Uncomment and view Logcat to review.
-// //    (*env)->CallVoidMethod(obj, method, "print me!");
-//    return 0;
-//}
-
-// int main(int argc, char **argv)
-JNIEXPORT jstring JNICALL
+JNIEXPORT jint JNICALL
 Java_com_example_borescopeviewer_MainActivity_bsfConnect(
         JNIEnv* env,
-        jobject,
+        jobject obj,
         jstring input_src,
         jstring output_dst
 ) {
     int opt;
-    struct fd_stream in, out;
-    const char *in_str = (*env)->GetStringUTFChars(env, input_src, 0);
-    const char *out_str = (*env)->GetStringUTFChars(env, output_dst, 0);
     int log_frames = 0; // Hardcoded to off for now.
     int c;
     int match_index = 0;
+    struct fd_stream in, out;
     struct frame_header header;
     char *buf;
     size_t buf_size;
@@ -286,33 +303,17 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
     buf_size = 16384; // This should be good for most frames.
     buf = malloc(buf_size);
 
-    int i;
+    char *in_str = (*env)->GetStringUTFChars(env, input_src, 0);
+    char *out_str = (*env)->GetStringUTFChars(env, output_dst, 0);
 
-    if (in_str == NULL)
-    {
-        in.fd = stdin;
-    }
-    else
-    {
-//        debug_print("Input stream = %s\n", in_str);
-        if (open_input_stream(&in, in_str) == 0)
-        {
-            return (*env)->NewStringUTF(env, "Error: Failed to open input stream");
-        }
-    }
+    set_status_text(env, obj, "Connecting...", NULL);
 
-    if (out_str == NULL)
-    {
-        out.fd = stdout;
-    }
-    else
-    {
-//        debug_print("Output stream = %s\n", out_str);
-        if (open_output_stream(&out, out_str) == 0)
-        {
-            return (*env)->NewStringUTF(env, "Error: Failed to open output");
-        }
-    }
+    if (in_str == NULL || open_input_stream(env, obj, &in, in_str) == 0)
+        return 1;
+    if (out_str == NULL || open_output_stream(env, obj, &out, out_str) == 0)
+        return 2;
+
+    set_status_text(env, obj, "Connected", NULL);
 
     while ((c = getc(in.fd)) != EOF)
     {
@@ -322,12 +323,10 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
             if (match_index == sizeof(frame_start_tag))
             {
                 // Found frame start tag.
-
                 match_index = 0;
 
                 // Read in frame header.
-
-                for (i = 0; i < sizeof(struct frame_header); i++)
+                for (int i = 0; i < sizeof(struct frame_header); i++)
                 {
                     ((char *)&header)[i] = getc(in.fd);
                 }
@@ -338,7 +337,6 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
                 }
 
                 // Read in mjpeg frame.
-
                 if (header.size > buf_size)
                 {
                     free(buf);
@@ -355,29 +353,31 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
                     buf_size++;
 
                     buf = malloc(buf_size);
-
-//                    debug_print("Reallocated buffer: size = %ld\n", buf_size);
                 }
 
-                for (i = 0; i < header.size; i++)
+                for (int i = 0; i < header.size; i++)
                 {
                     buf[i] = getc(in.fd);
                 };
 
                 // "Unencrypt" frame.
-
                 buf[header.size / 2] = ~buf[header.size / 2];
 
                 // Dump unencrypted mjpeg frame sans header/footer.
-
-                for (i = 0; i < header.size; i++)
-                {
-                    putc(buf[i], out.fd);
-                };
+                /**
+                 *
+                 *
+                 * Skipping until connection to input is functional.
+                 *
+                 *
+                 */
+//                for (i = 0; i < header.size; i++)
+//                {
+//                    putc(buf[i], out.fd);
+//                };
 
                 // Read in end tag;
-
-                for (i = 0; i < sizeof(frame_start_tag); i++)
+                for (int i = 0; i < sizeof(frame_start_tag); i++)
                 {
                     getc(in.fd);
                 };
@@ -389,6 +389,5 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
         }
     }
 
-    return (*env)->NewStringUTF(env, "Finished");
-
+    return 0;
 }
