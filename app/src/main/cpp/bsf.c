@@ -31,6 +31,7 @@ SOFTWARE.
 #include <errno.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #ifdef DEBUG
 #define DEBUG_PRINT 1
@@ -50,7 +51,6 @@ char frame_end_tag[9] = {'B', 'o', 'u', 'n', 'd', 'a', 'r', 'y', 'E'};
 // Frame header is little endian. So this should just work on Intel machines.
 // Only know what some of these fields are, but really only size matters.
 // The dimensions seem to be incorrect, anyways.
-
 struct __attribute__((__packed__)) frame_header
 {
     u_int8_t p1;
@@ -77,6 +77,15 @@ struct tcp_addr
 {
     char *addr;
     char *port;
+};
+
+struct pthread_args
+{
+    JavaVM *jvm;
+    JNIEnv *env;
+    jobject *obj;
+    const char * in_str;
+    const char * out_str;
 };
 
 int parse_addr(struct tcp_addr *addr, char *str)
@@ -249,146 +258,151 @@ int open_output_stream(struct fd_stream *file_out, char *out)
     return 1;
 }
 
-//JNIEXPORT jstring JNICALL
-//Java_com_example_borescopeviewer_MainActivity_bsfStringFromJNI(JNIEnv* env, jobject) {
-//    char hello[15] = "Hello from BSF";
-//    return (*env)->NewStringUTF(env, &hello);
-//}
+void set_status_text(JNIEnv* env, jobject *obj, const char * text) {
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    jmethodID method = (*env)->GetMethodID(env, cls, "setStatusText", "(Ljava/lang/String;)V");
+    jstring status = (*env)->NewStringUTF(env, text);
+    (*env)->CallVoidMethod(env, obj, method, status);
+}
 
-//JNIEXPORT jint JNICALL // Can't seem to use void here?
-//Java_com_example_borescopeviewer_MainActivity_bsfCallJavaMethod(JNIEnv* env, jobject obj) {
-//    jclass cls = (*env)->GetObjectClass(env, obj);
-//    jmethodID method = (*env)->GetMethodID(env, cls, "print_line", "()V");
-//    // Next step toward calling Java methods throws an error. Uncomment and view Logcat to review.
-// //    (*env)->CallVoidMethod(obj, method, "print me!");
-//    return 0;
-//}
-
-// int main(int argc, char **argv)
-JNIEXPORT jstring JNICALL
-Java_com_example_borescopeviewer_MainActivity_bsfConnect(
-        JNIEnv* env,
-        jobject,
-        jstring input_src,
-        jstring output_dst
-) {
+void *read_stream(void *args) {
     int opt;
-    struct fd_stream in, out;
-    const char *in_str = (*env)->GetStringUTFChars(env, input_src, 0);
-    const char *out_str = (*env)->GetStringUTFChars(env, output_dst, 0);
     int log_frames = 0; // Hardcoded to off for now.
     int c;
     int match_index = 0;
+    struct fd_stream in, out;
     struct frame_header header;
     char *buf;
     size_t buf_size;
+    struct pthread_args *ptargs = args;
 
     buf_size = 16384; // This should be good for most frames.
     buf = malloc(buf_size);
 
-    int i;
+    // Attach thread to JVM.
+    JavaVMAttachArgs jvm_args;
+    jvm_args.version = JNI_VERSION_1_6;
+    jvm_args.name = NULL;
+    jvm_args.group = NULL;
+    (*ptargs->jvm)->AttachCurrentThread(ptargs->jvm, &ptargs->env, NULL);
 
-    if (in_str == NULL)
+    set_status_text(ptargs->env, ptargs->obj, "Connecting...");
+
+//    if (in_str == NULL) {
+//        set_status_text(env, obj, "Error: Invalid input source");
+//        return;
+//    }
+
+//    if (open_input_stream(&in, in_str) == 0) {
+//        set_status_text(env, obj, "Error: Failed to open input stream");
+//        return;
+//    }
+//
+//    if (out_str == NULL) {
+//        set_status_text(env, obj, "Error: Invalid output destination");
+//        return;
+//    }
+//
+//    if (open_output_stream(&out, out_str) == 0) {
+//        set_status_text(env, obj, "Error: Failed to open output destination");
+//        return;
+//    }
+
+//    set_status_text(env, obj, "Connected");
+
+//    while ((c = getc(in.fd)) != EOF)
+//    {
+//        if (c == frame_start_tag[match_index])
+//        {
+//            match_index++;
+//            if (match_index == sizeof(frame_start_tag))
+//            {
+//                // Found frame start tag.
+//                match_index = 0;
+//
+//                // Read in frame header.
+//                for (int i = 0; i < sizeof(struct frame_header); i++)
+//                {
+//                    ((char *)&header)[i] = getc(in.fd);
+//                }
+//
+//                if (log_frames)
+//                {
+//                    fprintf(stderr, "frame: size = %d, width = %d, height = %d\n", header.size, header.width, header.height);
+//                }
+//
+//                // Read in mjpeg frame.
+//                if (header.size > buf_size)
+//                {
+//                    free(buf);
+//                    buf_size = header.size;
+//
+//                    // Find next power of 2 > size.
+//
+//                    buf_size--;
+//                    buf_size |= buf_size >> 1;
+//                    buf_size |= buf_size >> 2;
+//                    buf_size |= buf_size >> 4;
+//                    buf_size |= buf_size >> 8;
+//                    buf_size |= buf_size >> 16;
+//                    buf_size++;
+//
+//                    buf = malloc(buf_size);
+//                }
+//
+//                for (i = 0; i < header.size; i++)
+//                {
+//                    buf[i] = getc(in.fd);
+//                };
+//
+//                // "Unencrypt" frame.
+//                buf[header.size / 2] = ~buf[header.size / 2];
+//
+//                // Dump unencrypted mjpeg frame sans header/footer.
+//                for (i = 0; i < header.size; i++)
+//                {
+//                    putc(buf[i], out.fd);
+//                };
+//
+//                // Read in end tag;
+//                for (i = 0; i < sizeof(frame_start_tag); i++)
+//                {
+//                    getc(in.fd);
+//                };
+//            }
+//        }
+//        else
+//        {
+//            match_index = 0;
+//        }
+//    }
+    (*ptargs->jvm)->DetachCurrentThread(ptargs->jvm);
+    free(ptargs);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_example_borescopeviewer_MainActivity_bsfConnect(
+        JNIEnv* env,
+        jobject obj,
+        jstring input_src,
+        jstring output_dst
+) {
+    pthread_t t;
+    const char *in_str = (*env)->GetStringUTFChars(env, input_src, 0);
+    const char *out_str = (*env)->GetStringUTFChars(env, output_dst, 0);
+
+    struct pthread_args *ptargs = malloc(sizeof *ptargs);
+    JavaVM *jvm;
+    (*env)->GetJavaVM(env, &jvm);
+    ptargs->jvm = jvm;
+    ptargs->env = env;
+    ptargs->obj = &obj;
+    ptargs->in_str = input_src;
+    ptargs->out_str = output_dst;
+    if(pthread_create(&t, NULL, read_stream, ptargs))
     {
-        in.fd = stdin;
+        free(ptargs);
+        return 1;
     }
-    else
-    {
-//        debug_print("Input stream = %s\n", in_str);
-        if (open_input_stream(&in, in_str) == 0)
-        {
-            return (*env)->NewStringUTF(env, "Error: Failed to open input stream");
-        }
-    }
-
-    if (out_str == NULL)
-    {
-        out.fd = stdout;
-    }
-    else
-    {
-//        debug_print("Output stream = %s\n", out_str);
-        if (open_output_stream(&out, out_str) == 0)
-        {
-            return (*env)->NewStringUTF(env, "Error: Failed to open output");
-        }
-    }
-
-    while ((c = getc(in.fd)) != EOF)
-    {
-        if (c == frame_start_tag[match_index])
-        {
-            match_index++;
-            if (match_index == sizeof(frame_start_tag))
-            {
-                // Found frame start tag.
-
-                match_index = 0;
-
-                // Read in frame header.
-
-                for (i = 0; i < sizeof(struct frame_header); i++)
-                {
-                    ((char *)&header)[i] = getc(in.fd);
-                }
-
-                if (log_frames)
-                {
-                    fprintf(stderr, "frame: size = %d, width = %d, height = %d\n", header.size, header.width, header.height);
-                }
-
-                // Read in mjpeg frame.
-
-                if (header.size > buf_size)
-                {
-                    free(buf);
-                    buf_size = header.size;
-
-                    // Find next power of 2 > size.
-
-                    buf_size--;
-                    buf_size |= buf_size >> 1;
-                    buf_size |= buf_size >> 2;
-                    buf_size |= buf_size >> 4;
-                    buf_size |= buf_size >> 8;
-                    buf_size |= buf_size >> 16;
-                    buf_size++;
-
-                    buf = malloc(buf_size);
-
-//                    debug_print("Reallocated buffer: size = %ld\n", buf_size);
-                }
-
-                for (i = 0; i < header.size; i++)
-                {
-                    buf[i] = getc(in.fd);
-                };
-
-                // "Unencrypt" frame.
-
-                buf[header.size / 2] = ~buf[header.size / 2];
-
-                // Dump unencrypted mjpeg frame sans header/footer.
-
-                for (i = 0; i < header.size; i++)
-                {
-                    putc(buf[i], out.fd);
-                };
-
-                // Read in end tag;
-
-                for (i = 0; i < sizeof(frame_start_tag); i++)
-                {
-                    getc(in.fd);
-                };
-            }
-        }
-        else
-        {
-            match_index = 0;
-        }
-    }
-
-    return (*env)->NewStringUTF(env, "Finished");
-
+    return 0;
 }

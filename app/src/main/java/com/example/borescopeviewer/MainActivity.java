@@ -3,6 +3,7 @@ package com.example.borescopeviewer;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Button;
@@ -19,6 +20,8 @@ public class MainActivity extends AppCompatActivity {
     public String input_src = "tcp:10.0.2.2:7060/live/stream"; // -i
     public String output_dst = "tcp::7060"; // -o
 
+    /*
+
     /**
      * Load bsf.c as a library.
      */
@@ -27,11 +30,15 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Native functions defined in bfs.c and called via JNI.
      */
-    //public native String bsfStringFromJNI();
-    //public native Integer bsfCallJavaMethod();
-    public native String bsfConnect(String input_src, String output_dst);
+    public native int bsfConnect(String input_src, String output_dst);
 
     private ActivityMainBinding binding;
+
+    public void setStatusText(String text)
+    {
+        TextView status_text = (TextView) findViewById(R.id.status_text);
+        status_text.setText(text);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,10 +47,6 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        // Example of a call to a native method
-        TextView textview = binding.sampleText;
-        textview.setText("Click 'Connect'");
-
         // Get button instances.
         Button connect_btn = (Button) findViewById(R.id.connect_btn);
         Button disconnect_btn = (Button) findViewById(R.id.disconnect_btn);
@@ -51,13 +54,8 @@ public class MainActivity extends AppCompatActivity {
         // Define actions for button clicks.
         connect_btn.setOnClickListener((View.OnClickListener)(new View.OnClickListener() {
             public final void onClick(View it) {
-                textview.setText(bsfConnect(input_src, output_dst));
+                bsfConnect(input_src, output_dst);
             }
         }));
     }
-
-//    public void print_line(String line)
-//    {
-//        Log.d("TEST", line);
-//    }
 }
