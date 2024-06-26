@@ -3,17 +3,17 @@
 
 ### Description
 
-This project attempts to incorporate [mkarr/boroscope_stream_fixer](https://github.com/mkarr/boroscope_stream_fixer) into a basic Android app, creating a foundation for customizing functionality around a Borescope camera feed.
+This project aims to provide basic streaming functionality when connected to a Borescope camera device, eliminating the need to use the official app.
 
 ### Concept
 
 The design concept can be summarized as follows:
 
-- Support build/execution of embedded C/C++ (see [Android NDK](https://developer.android.com/ndk/guides/concepts)).
-- Support interaction between embedded C/C++ and Java/Kotlin (see [Java Native Interface (JNI)](https://developer.android.com/training/articles/perf-jni)).
-- Modify the `main` function in [bsf.c](https://github.com/mkarr/boroscope_stream_fixer/blob/master/bsf.c) (now `bsfConnect()`) to be callable from the app, receive the JNI environment, perform debug logging, etc.
-- Create a thread for the embedded C code to execute asynchronously, connecting to the specified Borescope camera, or any compatible/comparable video stream, over TCP.
-- Deliver the "unencrypted" frame data back to the main app activity to be rendered using a video player library -- a `VideoView` element or perhaps [ExoPlayer](https://github.com/google/ExoPlayer).
+- Embed a modified version of [mkarr/boroscope_stream_fixer](https://github.com/mkarr/boroscope_stream_fixer).
+  - Uses [Android NDK](https://developer.android.com/ndk/guides/concepts) to build/execute embedded C/C++. 
+  - Uses [Java Native Interface (JNI)](https://developer.android.com/training/articles/perf-jni) to facilitate interactions with native code.
+- Execute native code in its own thread, connecting to a specified input URI (i.e. the Borescope camera's TCP socket).
+- Serve "unencrypted" frame data using a local TCP socket to be rendered using a video player library -- a `VideoView` element or perhaps [ExoPlayer](https://github.com/google/ExoPlayer).
 
 ### Development
 
