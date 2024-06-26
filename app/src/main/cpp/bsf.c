@@ -253,6 +253,7 @@ int open_output_stream(
 
             listen(bind_sock, 1);
 
+            set_status_text(env, obj, "Waiting for video player...", NULL);
             write_sock = accept(bind_sock, (struct sockaddr *)&client, (socklen_t *)&sockaddr_in_size);
 
             if (write_sock == -1)
@@ -306,18 +307,25 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
     char *in_str = (*env)->GetStringUTFChars(env, input_src, 0);
     char *out_str = (*env)->GetStringUTFChars(env, output_dst, 0);
 
-    set_status_text(env, obj, "Connecting...", NULL);
-
+    set_status_text(env, obj, "Opening to input source...", NULL);
     if (in_str == NULL || open_input_stream(env, obj, &in, in_str) == 0)
         return 1;
-    
-//    if (out_str == NULL || open_output_stream(env, obj, &out, out_str) == 0)
-//        return 2;
 
-    set_status_text(env, obj, "Connected", NULL);
+    set_status_text(env, obj, "Opening output destination...", NULL);
+    if (out_str == NULL || open_output_stream(env, obj, &out, out_str) == 0)
+        return 2;
 
+    // Main input processing loop.
     while ((c = getc(in.fd)) != EOF)
     {
+        /**
+         * Note:
+         *   For now, print all character bytes to the output buffer, rather than only
+         *   after matching the frame start tag for the Borescope feed.
+         */
+        putc(c, out.fd);
+        continue;
+
         if (c == frame_start_tag[match_index])
         {
             match_index++;
@@ -332,10 +340,10 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
                     ((char *)&header)[i] = getc(in.fd);
                 }
 
-                if (log_frames)
-                {
-                    fprintf(stderr, "frame: size = %d, width = %d, height = %d\n", header.size, header.width, header.height);
-                }
+//                if (log_frames)
+//                {
+//                    fprintf(stderr, "frame: size = %d, width = %d, height = %d\n", header.size, header.width, header.height);
+//                }
 
                 // Read in mjpeg frame.
                 if (header.size > buf_size)
@@ -365,17 +373,10 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
                 buf[header.size / 2] = ~buf[header.size / 2];
 
                 // Dump unencrypted mjpeg frame sans header/footer.
-                /**
-                 *
-                 *
-                 * Skipping until connection to input is functional.
-                 *
-                 *
-                 */
-//                for (i = 0; i < header.size; i++)
-//                {
-//                    putc(buf[i], out.fd);
-//                };
+                for (int i = 0; i < header.size; i++)
+                {
+                    putc(buf[i], out.fd);
+                };
 
                 // Read in end tag;
                 for (int i = 0; i < sizeof(frame_start_tag); i++)

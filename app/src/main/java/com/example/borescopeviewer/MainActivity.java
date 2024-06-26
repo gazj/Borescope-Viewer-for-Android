@@ -2,13 +2,20 @@ package com.example.borescopeviewer;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Button;
+import android.widget.VideoView;
+
 import com.example.borescopeviewer.databinding.ActivityMainBinding;
+
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -19,7 +26,6 @@ public class MainActivity extends AppCompatActivity {
      */
     public String borescope_input_src = "tcp:192.168.10.123:7060"; // -i
     public String emulated_input_src = "tcp:10.0.2.2:7060/stream.mjpeg"; // emulation/testing
-    public String output_dst = "/data/output.jmpeg"; // -o
 
     /**
      * Load bsf.c as a library.
@@ -54,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
     public void log_char(char c) { Log.d("DEBUG", String.format("%c", c)); }
     public void log_int(int i) { Log.d("DEBUG", String.format("%d", i)); }
 
-    //
+    // Action on view creation.
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -62,13 +68,9 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        // Get editable text fields
+        // Set input field defaults.
         EditText inputSourceField = (EditText) findViewById(R.id.input_source);
-        EditText outputDestinationField = (EditText) findViewById(R.id.output_destination);
-
-        // Set text field defaults.
         inputSourceField.setText(emulated_input_src);
-        outputDestinationField.setText(output_dst);
 
         // Connect button setup.
         Button connect_btn = (Button) findViewById(R.id.connect_btn);
@@ -76,18 +78,44 @@ public class MainActivity extends AppCompatActivity {
             public final void onClick(View it) {
                 // Disable the form, requiring an app restart to attempt another connection.
                 inputSourceField.setEnabled(false);
-                outputDestinationField.setEnabled(false);
                 connect_btn.setEnabled(false);
                 // Create a new thread for bsf.c functions to run under.
                 new Thread(){
                     public void run(){
                         bsfConnect(
                             inputSourceField.getText().toString(),
-                            outputDestinationField.getText().toString()
+                            "tcp:127.0.0.1:7060"
                         );
                     }
                 }.start();
             }
         }));
+
+        // Configure the video player.
+        VideoView videoView = (VideoView) findViewById(R.id.videoView);
+
+        // Suppress error dialog when connection is unavailable.
+        videoView.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+            @Override
+            public boolean onError(MediaPlayer mp, int what, int extra) {
+                return true;
+            }
+        });
+
+        // Set a timer for the VideoView to poll the configured output destination.
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                try {
+                    if(!videoView.isPlaying()) {
+                        Uri uri = Uri.parse("tcp://127.0.0.1:7060");
+                        videoView.setVideoURI(uri);
+                        videoView.start();
+                    } else setStatusText("Streaming...", null);
+                } catch (Exception e) {
+                    //
+                }
+            }
+        }, 0, 1000);
     }
 }
