@@ -320,11 +320,11 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
     {
         /**
          * Note:
-         *   For now, print all character bytes to the output buffer, rather than only
-         *   after matching the frame start tag for the Borescope feed.
+         *   Uncomment the following two lines to print _all_ character bytes to the output buffer,
+         *   rather than only after matching the frame start tag for the Borescope feed.
          */
-        putc(c, out.fd);
-        continue;
+//        putc(c, out.fd);
+//        continue;
 
         if (c == frame_start_tag[match_index])
         {
