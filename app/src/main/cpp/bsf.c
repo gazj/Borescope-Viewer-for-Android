@@ -310,11 +310,7 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
 
     if (in_str == NULL || open_input_stream(env, obj, &in, in_str) == 0)
         return 1;
-
-    /**
-     * Task:
-     * Ensure the local filesystem is write
-     */
+    
 //    if (out_str == NULL || open_output_stream(env, obj, &out, out_str) == 0)
 //        return 2;
 
