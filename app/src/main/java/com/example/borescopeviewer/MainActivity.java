@@ -21,8 +21,6 @@ public class MainActivity extends AppCompatActivity {
     public String emulated_input_src = "tcp:10.0.2.2:7060/stream.mjpeg"; // emulation/testing
     public String output_dst = "/data/output.jmpeg"; // -o
 
-    /*
-
     /**
      * Load bsf.c as a library.
      */
