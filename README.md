@@ -9,7 +9,7 @@ This project attempts to incorporate [mkarr/boroscope_stream_fixer](https://gith
 
 The design concept can be summarized as follows:
 
-- Support build/execution of embedded C/C++ (see [Android NDK](https://developer.android.com/ndk/guides/concepts)
+- Support build/execution of embedded C/C++ (see [Android NDK](https://developer.android.com/ndk/guides/concepts)).
 - Support interaction between embedded C/C++ and Java/Kotlin (see [Java Native Interface (JNI)](https://developer.android.com/training/articles/perf-jni)).
 - Modify the `main` function in [bsf.c](https://github.com/mkarr/boroscope_stream_fixer/blob/master/bsf.c) (now `bsfConnect()`) to be callable from the app, receive the JNI environment, perform debug logging, etc.
 - Create a thread for the embedded C code to execute asynchronously, connecting to the specified Borescope camera, or any compatible/comparable video stream, over TCP.
