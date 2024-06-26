@@ -17,7 +17,7 @@ The design concept can be summarized as follows:
 
 ### Development
 
-This project is being developed in Android Studio. Clone and import the project and commit any changes that are required to get the project functioning correctly.
+This project is being developed in [Android Studio](https://developer.android.com/studio). Clone and import the project and commit any changes that are required to get the project functioning correctly.
 
 If another tool is used, please don't modify files which might interfere with development in Android Studio.
 
