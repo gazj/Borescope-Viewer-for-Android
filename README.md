@@ -27,7 +27,7 @@ As of the latest commit in this branch, it does not work. Probably porting [gsf.
 
 See the [issues](https://github.com/gazj/borescope-viewer-for-android/issues) for remaining to-dos and known challenges which may or may not have known solutions.
 
-### Contribution
+### Contributions
 
 Contributions are accepted informally. Just fork the project and create an issue describing the changes, then submit a pull request which includes those changes.
 
