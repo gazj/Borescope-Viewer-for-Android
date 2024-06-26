@@ -70,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Set input field defaults.
         EditText inputSourceField = (EditText) findViewById(R.id.input_source);
-        inputSourceField.setText(emulated_input_src);
+        inputSourceField.setText(borescope_input_src);
 
         // Connect button setup.
         Button connect_btn = (Button) findViewById(R.id.connect_btn);
