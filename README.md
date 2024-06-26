@@ -13,7 +13,7 @@ The design concept can be summarized as follows:
 - Support interaction between embedded C/C++ and Java/Kotlin (see [Java Native Interface (JNI)](https://developer.android.com/training/articles/perf-jni)).
 - Modify the `main` function in [bsf.c](https://github.com/mkarr/boroscope_stream_fixer/blob/master/bsf.c) (now `bsfConnect()`) to be callable from the app, receive the JNI environment, perform debug logging, etc.
 - Create a thread for the embedded C code to execute asynchronously, connecting to the specified Borescope camera, or any compatible/comparable video stream, over TCP.
-- Deliver the "unencrypted" frame data back to the main app activity to be rendered using a video player library, perhaps [ExoPlayer](https://github.com/google/ExoPlayer).
+- Deliver the "unencrypted" frame data back to the main app activity to be rendered using a video player library, a `VideoView` element or perhaps [ExoPlayer](https://github.com/google/ExoPlayer).
 
 ### Development
 
