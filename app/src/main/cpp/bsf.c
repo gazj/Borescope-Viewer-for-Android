@@ -307,7 +307,7 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
     char *in_str = (*env)->GetStringUTFChars(env, input_src, 0);
     char *out_str = (*env)->GetStringUTFChars(env, output_dst, 0);
 
-    set_status_text(env, obj, "Opening to input source...", NULL);
+    set_status_text(env, obj, "Opening input source...", NULL);
     if (in_str == NULL || open_input_stream(env, obj, &in, in_str) == 0)
         return 1;
 
