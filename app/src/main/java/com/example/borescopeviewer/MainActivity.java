@@ -4,13 +4,10 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
 import android.util.Log;
-import android.os.Build;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Button;
-import java.util.ArrayList;
-import java.util.List;
 import com.example.borescopeviewer.databinding.ActivityMainBinding;
 
 public class MainActivity extends AppCompatActivity {
