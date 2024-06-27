@@ -32,18 +32,6 @@ SOFTWARE.
 #include <fcntl.h>
 #include <arpa/inet.h>
 
-#ifdef DEBUG
-#define DEBUG_PRINT 1
-#else
-#define DEBUG_PRINT 0
-#endif
-#define debug_print(...)                  \
-    do                                    \
-    {                                     \
-        if (DEBUG_PRINT)                  \
-            fprintf(stderr, __VA_ARGS__); \
-    } while (0)
-
 char frame_start_tag[9] = {'B', 'o', 'u', 'n', 'd', 'a', 'r', 'y', 'S'};
 char frame_end_tag[9] = {'B', 'o', 'u', 'n', 'd', 'a', 'r', 'y', 'E'};
 
@@ -150,7 +138,11 @@ int open_input_stream(
         }
         else
         {
-            debug_print("Network Input Stream: address = %s, port = %s\n", addr.addr, addr.port);
+            const char * format = "Network Input Stream: address = %s, port = %s\n";
+            int str_size = snprintf(NULL, 0, format, addr.addr, addr.port);
+            char *const str = malloc(sizeof *str * (str_size + 1u));
+            snprintf(str, str_size, format, addr.addr, addr.port);
+            log_string(env, obj, str);
 
             host = gethostbyname(addr.addr);
 
@@ -221,7 +213,11 @@ int open_output_stream(
         }
         else
         {
-            debug_print("Network Output Stream: address = %s, port = %s\n", strlen(addr.addr) > 0 ? addr.addr : "EMPTY", addr.port);
+            const char * format = "Network Output Stream: address = %s, port = %s\n";
+            int str_size = snprintf(NULL, 0, format, strlen(addr.addr) > 0 ? addr.addr : "EMPTY", addr.port);
+            char *const str = malloc(sizeof *str * (str_size + 1u));
+            snprintf(str, str_size, format, strlen(addr.addr) > 0 ? addr.addr : "EMPTY", addr.port);
+            log_string(env, obj, str);
 
             // Does not makes sense to dns lookup output hostname. Just assume it is an IP.
             bind_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -293,7 +289,7 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
         jstring output_dst
 ) {
     int opt;
-    int log_frames = 0; // Hardcoded to off for now.
+    int log_frames = 1;
     int c;
     int match_index = 0;
     struct fd_stream in, out;
@@ -304,8 +300,8 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
     buf_size = 16384; // This should be good for most frames.
     buf = malloc(buf_size);
 
-    char *in_str = (*env)->GetStringUTFChars(env, input_src, 0);
-    char *out_str = (*env)->GetStringUTFChars(env, output_dst, 0);
+    const char *in_str = (*env)->GetStringUTFChars(env, input_src, 0);
+    const char *out_str = (*env)->GetStringUTFChars(env, output_dst, 0);
 
     set_status_text(env, obj, "Opening input source...", NULL);
     if (in_str == NULL || open_input_stream(env, obj, &in, in_str) == 0)
@@ -323,8 +319,8 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
          *   Uncomment the following two lines to print _all_ character bytes to the output buffer,
          *   rather than only after matching the frame start tag for the Borescope feed.
          */
-//        putc(c, out.fd);
-//        continue;
+        putc(c, out.fd);
+        continue;
 
         if (c == frame_start_tag[match_index])
         {
@@ -340,10 +336,14 @@ Java_com_example_borescopeviewer_MainActivity_bsfConnect(
                     ((char *)&header)[i] = getc(in.fd);
                 }
 
-//                if (log_frames)
-//                {
-//                    fprintf(stderr, "frame: size = %d, width = %d, height = %d\n", header.size, header.width, header.height);
-//                }
+                if (log_frames)
+                {
+                    const char * format = "frame: size = %d, width = %d, height = %d\n";
+                    int str_size = snprintf(NULL, 0, format, header.size, header.width, header.height);
+                    char *const str = malloc(sizeof *str * (str_size + 1u));
+                    snprintf(str, str_size, format, header.size, header.width, header.height);
+                    log_string(env, obj, str);
+                }
 
                 // Read in mjpeg frame.
                 if (header.size > buf_size)
